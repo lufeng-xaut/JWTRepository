@@ -1,0 +1,104 @@
+https://jwt.io/introduction/
+
+JWT
+JSON Web Token,是一种基于 token 的认证方案
+简单的说，JWT就是一种Token的编码算法，其中包含可以签名和加密的JSON数据有效载荷。
+
+服务器端负责根据一个密码和算法生成Token，然后发给客户端，
+客户端只负责后面每次请求都在HTTP header里面带上这个Token，服务器负责验证这个Token是不是合法的，
+有没有过期等，并可以解析出subject和claim里面的数据。
+
+注意：对于已签名的令牌，此信息尽管可以防止篡改，但任何人都可以读取。除非将其加密，否则请勿将重要信息放入JWT的有效负载或报头元素中。
+
+
+
+一、在什么时候使用JWTs
+传统的垂直架构应用，所有的代码都在一个war包中，用户的请求session通常都是存在tomcat会话中，前端用sessionid来标识本次请求的会话
+
+在分布式架构下，用户的一个请求会跨越多个项目，显然在tomcat中存储已经不合适了
+
+在这种情况下有几种解决方案：
+
+1.使用独立缓存来储存用户的session，比如存在redis或memcached中；spring框架提供的springSession就是这种解决方案。
+这种方案的前提必须是所有的服务必须链接同一个缓存中心，不能跨越两个不同的系统
+
+2.使用JWTs独立存储用户信息，后台使用拦截器对收到的JWTs进行解析，转成实际用户信息再分发给其他的相关服务
+缺点是无法作废已颁布的令牌/不易应对数据过期。优点是支持跨域访问，Cookie是不允许跨域访问的，而Token可以
+
+
+一、jwt的组成
+
+Header: 令牌的元数据，表示类型以及签名所用的算法
+
+Claims: 载荷就是存放有效信息的地方，JWT指定七个默认字段，也可以自定义私有字段
+
+JSON Web Signature (JWS): 使用header中指定的算法生成哈希字符串，用于验证JWT在整个过程中有没有被更改
+
+iss: jwt签发者
+sub: jwt所面向的用户
+aud: 接收jwt的一方
+exp: jwt的过期时间，这个过期时间必须要大于签发时间
+nbf: 定义在什么时间之前，该jwt都是不可用的.
+iat: jwt的签发时间
+jti: (JWT ID)，主要用来作为一次性token,从而回避重放攻击
+
+因此，JWT通常如下结构所示。
+
+xxxxx.yyyyy.zzzzz
+
+
+
+例如：
+
+Header:
+
+{
+  "alg": "HS256", // alg属性表示签名使用的算法，默认为HMAC SHA256（写为HS256）,最后要使用Base64 URL算法将JSON对象转换为字符串
+  "typ": "JWT"
+}
+
+Claims:
+
+{
+  "sub": "1234567890",
+  "name": "John Doe",
+  "admin": true
+}
+
+Signature:
+HMACSHA256(base64UrlEncode(header) + "." +base64UrlEncode(payload),secret) 
+
+注：secret(盐，加盐加密),服务端的私钥,secret是保存在服务器端的，jwt的签发生成也是在服务器端的，在任何场景都不应该流露出去。
+一旦客户端得知这个secret, 那就意味着客户端是可以自我签发jwt
+
+
+将这三部分用.连接成一个完整的字符串,构成了最终的jwt: 
+
+base64UrlEncode(header) + "." +base64UrlEncode(payload) + "." + HMACSHA256(base64UrlEncode(header) + "." +base64UrlEncode(payload),secret)
+
+例如：
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+
+
+
+为什么要加 Bearer?
+这是jwt的规范，用来说明、规范后边那一串字符串的格式，这样接收者就知道如何解码、验证这个字符串是否合法。
+格式：
+Authorization: Bearer <token>
+
+
+jwt实现一个账号只能同时在一个设备（端）登录
+jwt 里面记录用户 id 和生成一个随机值(比如最后登陆时间、jwtID)，登陆的时候用户表存一下这个随机值。验证用户的时候拿用户 id 去查用户表看看这个随机值是不是就是 jwt 的随机值，如果不是，就作废当前 jwt
+(多数应用的用户表中都会储存用户的最后登录时间,最后登录ip等信息)
+
+
+
+
+
+
+
+
+
+
+
+
